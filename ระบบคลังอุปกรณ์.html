@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบคลังอุปกรณ์</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Arial,"Noto Sans Thai",sans-serif}
+    body{background:#f4f6f9;color:#1f2937}
+    .container{max-width:1200px;margin:auto;padding:24px}
+    header{background:#2563eb;color:white;padding:24px;border-radius:16px;margin-bottom:24px}
+    header h1{margin-bottom:6px}
+    .dashboard{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+    .card{background:white;padding:20px;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+    .card h3{color:#6b7280;font-size:14px;margin-bottom:10px}
+    .card .number{font-size:30px;font-weight:bold}
+    .toolbar{background:white;padding:18px;border-radius:14px;margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    input,select{padding:11px 13px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;outline:none}
+    input:focus,select:focus{border-color:#2563eb}
+    .search{flex:1;min-width:240px}
+    button{border:none;border-radius:8px;padding:11px 16px;cursor:pointer;font-size:14px;font-weight:600}
+    .btn-primary{background:#2563eb;color:white}.btn-primary:hover{background:#1d4ed8}
+    .btn-edit{background:#f59e0b;color:white}.btn-delete{background:#ef4444;color:white}
+    .btn-cancel{background:#e5e7eb;color:#374151}
+    .table-box{background:white;border-radius:14px;overflow-x:auto;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+    table{width:100%;border-collapse:collapse;min-width:850px}
+    th,td{padding:14px;border-bottom:1px solid #e5e7eb;text-align:left}
+    th{background:#f9fafb;font-size:14px}td{font-size:14px}
+    .badge{display:inline-block;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:bold}
+    .good{background:#dcfce7;color:#166534}.repair{background:#fef3c7;color:#92400e}
+    .broken{background:#fee2e2;color:#991b1b}.low{background:#fff7ed;color:#c2410c}
+    .normal{background:#dcfce7;color:#166534}
+    .actions{display:flex;gap:6px}.actions button{padding:7px 10px;font-size:12px}
+    .empty{text-align:center;padding:40px;color:#6b7280}
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:20px;z-index:1000}
+    .modal.active{display:flex}
+    .modal-content{background:white;width:100%;max-width:550px;border-radius:16px;padding:24px;max-height:90vh;overflow-y:auto}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+    .close{background:transparent;font-size:24px;padding:0;color:#6b7280}
+    .form-group{margin-bottom:16px}.form-group label{display:block;margin-bottom:6px;font-weight:600;font-size:14px}
+    .form-group input,.form-group select{width:100%}.required{color:#ef4444}
+    .error{color:#dc2626;font-size:12px;margin-top:5px;display:none}
+    .form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+    .low-stock{margin-top:24px}.low-stock h2{margin-bottom:12px}
+    @media(max-width:800px){.dashboard{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:500px){.dashboard{grid-template-columns:1fr}.container{padding:12px}}
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>📦 ระบบคลังอุปกรณ์</h1>
+    <p>ระบบจัดการอุปกรณ์สำหรับครูผู้ดูแล</p>
+  </header>
+
+  <section class="dashboard">
+    <div class="card"><h3>อุปกรณ์ทั้งหมด</h3><div class="number" id="totalItems">0</div></div>
+    <div class="card"><h3>จำนวนรวม</h3><div class="number" id="totalQuantity">0</div></div>
+    <div class="card"><h3>สภาพดี</h3><div class="number" id="goodItems">0</div></div>
+    <div class="card"><h3>🔔 ของใกล้หมด</h3><div class="number" id="lowItems">0</div></div>
+  </section>
+
+  <div class="toolbar">
+    <input id="searchInput" class="search" type="text" placeholder="🔍 ค้นหารหัส หรือชื่ออุปกรณ์..." oninput="render()">
+    <select id="categoryFilter" onchange="render()">
+      <option value="">ทุกหมวดหมู่</option>
+      <option>คอมพิวเตอร์</option><option>สื่อการสอน</option><option>เครื่องเสียง</option>
+      <option>เฟอร์นิเจอร์</option><option>เครื่องใช้ไฟฟ้า</option><option>สำนักงาน</option><option>อุปกรณ์เสริม</option>
+    </select>
+    <button class="btn-primary" onclick="openAddModal()">＋ เพิ่มอุปกรณ์</button>
+  </div>
+
+  <div class="table-box">
+    <table>
+      <thead><tr><th>รหัส</th><th>ชื่ออุปกรณ์</th><th>หมวดหมู่</th><th>จำนวน</th><th>สภาพ</th><th>จุดเก็บ</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+      <tbody id="equipmentTable"></tbody>
+    </table>
+  </div>
+
+  <section class="low-stock">
+    <h2>🔔 อุปกรณ์ใกล้หมด</h2>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>รหัส</th><th>อุปกรณ์</th><th>คงเหลือ</th><th>ขั้นต่ำ</th></tr></thead>
+        <tbody id="lowStockTable"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="equipmentModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="modalTitle">เพิ่มอุปกรณ์</h2>
+      <button class="close" onclick="closeModal()">×</button>
+    </div>
+    <form id="equipmentForm" onsubmit="saveForm(event)">
+      <input type="hidden" id="editId">
+
+      <div class="form-group"><label>รหัส <span class="required">*</span></label><input id="code" maxlength="20"><div class="error" id="codeError"></div></div>
+      <div class="form-group"><label>ชื่ออุปกรณ์ <span class="required">*</span></label><input id="name" maxlength="100"><div class="error" id="nameError"></div></div>
+      <div class="form-group"><label>หมวดหมู่ <span class="required">*</span></label>
+        <select id="category"><option value="">เลือกหมวดหมู่</option><option>คอมพิวเตอร์</option><option>สื่อการสอน</option><option>เครื่องเสียง</option><option>เฟอร์นิเจอร์</option><option>เครื่องใช้ไฟฟ้า</option><option>สำนักงาน</option><option>อุปกรณ์เสริม</option></select>
+        <div class="error" id="categoryError"></div>
+      </div>
+      <div class="form-group"><label>จำนวน <span class="required">*</span></label><input id="quantity" type="number" min="0" step="1"><div class="error" id="quantityError"></div></div>
+      <div class="form-group"><label>สภาพ <span class="required">*</span></label>
+        <select id="condition"><option value="">เลือกสภาพ</option><option>ดี</option><option>ต้องซ่อม</option><option>ชำรุด</option></select>
+        <div class="error" id="conditionError"></div>
+      </div>
+      <div class="form-group"><label>จุดเก็บ <span class="required">*</span></label><input id="location" maxlength="100" placeholder="เช่น ห้องโสตฯ"><div class="error" id="locationError"></div></div>
+      <div class="form-group"><label>จุดสั่งซื้อขั้นต่ำ <span class="required">*</span></label><input id="minQuantity" type="number" min="0" step="1" placeholder="เช่น 5"><div class="error" id="minQuantityError"></div></div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" onclick="closeModal()">ยกเลิก</button>
+        <button type="submit" class="btn-primary">💾 บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY="school_equipment";
+const defaultData=[
+{id:crypto.randomUUID(),code:"EQ-001",name:"โปรเจกเตอร์ Epson",category:"สื่อการสอน",quantity:3,condition:"ดี",location:"ห้องโสตฯ",minQuantity:2},
+{id:crypto.randomUUID(),code:"EQ-002",name:"โน้ตบุ๊ก Lenovo",category:"คอมพิวเตอร์",quantity:8,condition:"ดี",location:"ห้องคอมพิวเตอร์",minQuantity:3},
+{id:crypto.randomUUID(),code:"EQ-003",name:"ลำโพง JBL",category:"เครื่องเสียง",quantity:4,condition:"ดี",location:"ห้องโสตฯ",minQuantity:2},
+{id:crypto.randomUUID(),code:"EQ-004",name:"โต๊ะนักเรียน",category:"เฟอร์นิเจอร์",quantity:2,condition:"ต้องซ่อม",location:"ห้องเก็บของ",minQuantity:5},
+{id:crypto.randomUUID(),code:"EQ-005",name:"กระดาษ A4",category:"สำนักงาน",quantity:3,condition:"ดี",location:"ห้องธุรการ",minQuantity:10}
+];
+
+function getEquipment(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw){saveEquipment(defaultData);return defaultData;}
+    const data=JSON.parse(raw);
+    return Array.isArray(data)?data:[];
+  }catch(e){saveEquipment(defaultData);return defaultData;}
+}
+function saveEquipment(data){localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}
+
+function render(){
+  const data=getEquipment();
+  const search=document.getElementById("searchInput").value.trim().toLowerCase();
+  const cat=document.getElementById("categoryFilter").value;
+  const filtered=data.filter(x=>
+    (!search || x.code.toLowerCase().includes(search)||x.name.toLowerCase().includes(search)) &&
+    (!cat || x.category===cat)
+  );
+
+  document.getElementById("equipmentTable").innerHTML=filtered.length?filtered.map(x=>{
+    const conditionClass=x.condition==="ดี"?"good":x.condition==="ต้องซ่อม"?"repair":"broken";
+    const isLow=Number(x.quantity)<=Number(x.minQuantity);
+    return `<tr>
+      <td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.category)}</td>
+      <td>${x.quantity}</td><td><span class="badge ${conditionClass}">${esc(x.condition)}</span></td>
+      <td>${esc(x.location)}</td><td><span class="badge ${isLow?"low":"normal"}">${isLow?"ใกล้หมด":"ปกติ"}</span></td>
+      <td><div class="actions"><button class="btn-edit" onclick="editEquipment('${x.id}')">แก้ไข</button><button class="btn-delete" onclick="deleteEquipment('${x.id}')">ลบ</button></div></td>
+    </tr>`;
+  }).join(""):`<tr><td colspan="8" class="empty">ไม่พบข้อมูลอุปกรณ์</td></tr>`;
+
+  renderDashboard(data);
+  renderLowStock(data);
+}
+function renderDashboard(data){
+  document.getElementById("totalItems").textContent=data.length;
+  document.getElementById("totalQuantity").textContent=data.reduce((s,x)=>s+Number(x.quantity||0),0);
+  document.getElementById("goodItems").textContent=data.filter(x=>x.condition==="ดี").length;
+  document.getElementById("lowItems").textContent=data.filter(x=>Number(x.quantity)<=Number(x.minQuantity)).length;
+}
+function renderLowStock(data){
+  const low=data.filter(x=>Number(x.quantity)<=Number(x.minQuantity));
+  document.getElementById("lowStockTable").innerHTML=low.length?low.map(x=>
+    `<tr><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${x.quantity}</td><td>${x.minQuantity}</td></tr>`
+  ).join(""):`<tr><td colspan="4" class="empty">ไม่มีอุปกรณ์ใกล้หมด</td></tr>`;
+}
+function openAddModal(){
+  document.getElementById("equipmentForm").reset();
+  document.getElementById("editId").value="";
+  document.getElementById("modalTitle").textContent="เพิ่มอุปกรณ์";
+  clearErrors();
+  document.getElementById("equipmentModal").classList.add("active");
+}
+function closeModal(){document.getElementById("equipmentModal").classList.remove("active")}
+function editEquipment(id){
+  const x=getEquipment().find(a=>a.id===id);
+  if(!x)return;
+  document.getElementById("editId").value=x.id;
+  document.getElementById("code").value=x.code;
+  document.getElementById("name").value=x.name;
+  document.getElementById("category").value=x.category;
+  document.getElementById("quantity").value=x.quantity;
+  document.getElementById("condition").value=x.condition;
+  document.getElementById("location").value=x.location;
+  document.getElementById("minQuantity").value=x.minQuantity;
+  document.getElementById("modalTitle").textContent="แก้ไขอุปกรณ์";
+  clearErrors();
+  document.getElementById("equipmentModal").classList.add("active");
+}
+function saveForm(e){
+  e.preventDefault(); clearErrors();
+  const id=document.getElementById("editId").value;
+  const item={
+    id:id||crypto.randomUUID(),
+    code:document.getElementById("code").value.trim(),
+    name:document.getElementById("name").value.trim(),
+    category:document.getElementById("category").value,
+    quantity:Number(document.getElementById("quantity").value),
+    condition:document.getElementById("condition").value,
+    location:document.getElementById("location").value.trim(),
+    minQuantity:Number(document.getElementById("minQuantity").value)
+  };
+  let ok=true;
+  const err=(id,msg)=>{document.getElementById(id).textContent=msg;document.getElementById(id).style.display="block";ok=false};
+  if(!item.code)err("codeError","กรุณากรอกรหัส");
+  if(!item.name)err("nameError","กรุณากรอกชื่ออุปกรณ์");
+  if(!item.category)err("categoryError","กรุณาเลือกหมวดหมู่");
+  if(!Number.isInteger(item.quantity)||item.quantity<0)err("quantityError","จำนวนต้องเป็นเลขจำนวนเต็มตั้งแต่ 0 ขึ้นไป");
+  if(!item.condition)err("conditionError","กรุณาเลือกสภาพ");
+  if(!item.location)err("locationError","กรุณากรอกจุดเก็บ");
+  if(!Number.isInteger(item.minQuantity)||item.minQuantity<0)err("minQuantityError","กรุณากรอกจำนวนขั้นต่ำตั้งแต่ 0 ขึ้นไป");
+  const duplicate=getEquipment().some(x=>x.code.toLowerCase()===item.code.toLowerCase()&&x.id!==id);
+  if(duplicate)err("codeError","รหัสนี้มีอยู่แล้ว");
+  if(!ok)return;
+  let data=getEquipment();
+  if(id)data=data.map(x=>x.id===id?item:x);else data.push(item);
+  saveEquipment(data);closeModal();render();
+}
+function deleteEquipment(id){
+  const x=getEquipment().find(a=>a.id===id);
+  if(!x)return;
+  if(confirm(`ต้องการลบ "${x.name}" ใช่หรือไม่?`)){
+    saveEquipment(getEquipment().filter(a=>a.id!==id));render();
+  }
+}
+function clearErrors(){document.querySelectorAll(".error").forEach(e=>{e.textContent="";e.style.display="none"})}
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+document.getElementById("equipmentModal").addEventListener("click",e=>{if(e.target.id==="equipmentModal")closeModal()});
+render();
+</script>
+</body>
+</html>
